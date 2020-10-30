@@ -38,9 +38,10 @@ dept = {'간석1동':3530024,'간석2동':3530025,'간석3동':3530026,'간석4�
 fillna_table = {
     '민원접수번호*': '번호없음',
     '민원등록일시*': '2020-07-01 00:00',
-    '처리기한일시*': '2020-07-01 00:00',
+    '처리기한일시*': '2020-07-08 00:00',
     '담당자지정일시*': '2020-07-01 00:00',
     '답변일자*': '2020-07-01 00:00',
+    '부서코드*': 0,
     '처리부서*': '부서없음',
     '처리담당자*': '담당자없음',
     '처리상태*': '완료',
@@ -50,71 +51,53 @@ fillna_table = {
 
 
 def create_formatted_data(original_complaints: pd.DataFrame) -> pd.DataFrame:
-    # 원본데이터 컬럼명 재정의
+    # 원본데이터 컬럼명 재정의, 필수 컬럼 아닌 것은 제외
     original_complaints.columns = column_names
 
     complaints = pd.DataFrame()
+
     complaints['민원접수번호*'] = original_complaints['신청번호']
     complaints['민원등록일자'] = pd.Series(tuple(map(lambda x: datetime.datetime.strptime(x, '%Y-%m-%d %H:%M').date(), original_complaints['신청일자'])))
     complaints['민원등록일시*'] = pd.Series(tuple(map(lambda x: datetime.datetime.strptime(x, '%Y-%m-%d %H:%M'), original_complaints['신청일자'])))
     complaints['민원제목*'] = None
     complaints['민원내용*'] = None
     complaints['처리기한일시*'] = pd.Series(tuple(map(lambda x: datetime.datetime.strptime(x, '%Y-%m-%d %H:%M') + datetime.timedelta(days=7), original_complaints['신청일자'])))
-    complaints['담당자지정일시*'] = original_complaints['접수일자']  # 일단 일시로 해놓은거 물어봐야됨
-    complaints['답변일자*'] = original_complaints['접수일자']  # 일단 일시로 해놓은거 물어봐야됨
+    complaints['담당자지정일시*'] = original_complaints['접수일자']
+    complaints['답변일자*'] = pd.Series(tuple(map(lambda x: x if isinstance(x, float) else datetime.datetime.strptime(x, '%Y-%m-%d %H:%M').date(), original_complaints['처리일'])))
     complaints['부서코드*'] = pd.Series(tuple(map(lambda x: dept.get(x, 0), original_complaints['담당부서4'])))
     complaints['처리부서*'] = original_complaints['담당부서4']
     complaints['처리담당자*'] = original_complaints['담당자']
-    complaints['처리상태*'] = '완료'  # 일단 일시로 해놓은거 물어봐야됨
+    complaints['처리상태*'] = '완료'
     complaints['진행상태'] = None
-    complaints['답변내용'] = None  # original_complaints['처리결과'] 용량때문에 그냥 잘라놓음
-    complaints['답변일시*'] = original_complaints['처리일']  # 일단 일시로 해놓은거 물어봐야됨
+    complaints['답변내용'] = None
+    complaints['답변일시*'] = pd.Series(tuple(map(lambda x: x if isinstance(x, float) else datetime.datetime.strptime(x, '%Y-%m-%d %H:%M'), original_complaints['처리일'])))
     complaints['만족도평가'] = None
     complaints['만족도내용'] = None
-
-    # # 이것 때문에 오래 걸리기는 하는데 필수는 아님
-    # for idx in original_complaints.index:
-    #     if original_complaints.loc[idx, '4차만족불만족사유'] is not math.nan:
-    #         complaints.loc[idx, '만족도평가'] = original_complaints.loc[idx, '4차만족불만족사유']
-    #     elif original_complaints.loc[idx, '3차만족불만족사유'] is not math.nan:
-    #         complaints.loc[idx, '만족도평가'] = original_complaints.loc[idx, '3차만족불만족사유']
-    #     elif original_complaints.loc[idx, '2차만족불만족사유'] is not math.nan:
-    #         complaints.loc[idx, '만족도평가'] = original_complaints.loc[idx, '2차만족불만족사유']
-    #     elif original_complaints.loc[idx, '1차만족불만족사유'] is not math.nan:
-    #         complaints.loc[idx, '만족도평가'] = original_complaints.loc[idx, '1차만족불만족사유']
-    #
-    #     if original_complaints.loc[idx, '4차만족도'] is not math.nan:
-    #         complaints.loc[idx, '만족도내용'] = original_complaints.loc[idx, '4차만족도']
-    #     elif original_complaints.loc[idx, '3차만족도'] is not math.nan:
-    #         complaints.loc[idx, '만족도내용'] = original_complaints.loc[idx, '3차만족도']
-    #     elif original_complaints.loc[idx, '2차만족도'] is not math.nan:
-    #         complaints.loc[idx, '만족도내용'] = original_complaints.loc[idx, '2차만족도']
-    #     elif original_complaints.loc[idx, '1차만족도'] is not math.nan:
-    #         complaints.loc[idx, '만족도내용'] = original_complaints.loc[idx, '1차만족도']
 
     # 2020년 3분기 기준 주소 제대로 되지 않은 것 3개 있음 ('.' 하나, NA 둘)
     complaints['민원인주소*'] = pd.Series(tuple(map(lambda x: x.replace('[민원발생위치]', '') if x is not np.nan else x, original_complaints['주소'])))
     complaints['연장처리일수'] = None
-    complaints['연장처리횟수'] = None  # original_complaints['처리연장횟수']
+    complaints['연장처리횟수'] = None
     complaints['연장처리기한'] = None
     complaints['실처리일수'] = None
-    complaints['_민원제목'] = original_complaints['민원제목']
-    complaints['_민원내용'] = original_complaints['민원내용']
-    complaints['_민원요지'] = original_complaints['민원요지']
-    complaints['_민원경로'] = '-'
-    complaints['_명사추출'] = '-'
 
-    # NA 값 채우기
-    complaints['_민원요지'].fillna('', inplace=True)
-    complaints['_민원제목'].fillna('', inplace=True)
-    complaints['_민원내용'].fillna('', inplace=True)
+    # 임시 컬럼
+    complaints['_민원제목'] = original_complaints['민원제목'].fillna('')
+    complaints['_민원내용'] = original_complaints['민원내용'].fillna('')
+    complaints['_민원요지'] = original_complaints['민원요지'].fillna('')
 
     # 민원접수번호 순 정렬
     complaints.sort_values(by=['민원접수번호*'], inplace=True)
 
-    # 필수 컬럼에 대해 NA 처리
+    # 필수 컬럼에 대해 NA 처리, fillna만으로 못잡는 것 같아서 이중으로 처리
     for column, substitute_value in fillna_table.items():
-        complaints[column].fillna(substitute_value)
+        complaints[column].fillna(substitute_value)  # np.nan만 하는건가?
+        for idx in complaints.index:
+            cell = complaints.loc[idx, column]
+            # float('nan'), pd._libs.tslibs.nattype.NaTType 제외
+            if isinstance(cell, float) and not cell >= 0 or isinstance(cell, pd._libs.tslibs.nattype.NaTType):
+                complaints.loc[idx, column] = substitute_value
+
 
     print('양식에 맞는 DataFrame 생성 완료')
     return complaints

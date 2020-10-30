@@ -11,37 +11,35 @@ from konlpy.tag import Kkma
 # 같은 분류라도 단어에 따라 여러번 검사할수도 있음
 patterns = OrderedDict({
     # 확정의 영역
-    '비부과': re.compile('비부과'),
+    # '비부과': re.compile('비부과'),
     '장애인주차구역': re.compile('장애인.{,20}차'),  # 장애인 스티커 미부착 차량...
-    '소방시설불법주정차': re.compile('(소화|소방).{,20}(주차|정차|주정)'),
-    '불법주정차': re.compile('(불법.{,20}(주차|정차|주정))|((주차|정차|주정)|위반)|(차량.{,20}과태료)'),
-    '기타주정차': re.compile('주차|정차|주정'),
-    '불법광고물': re.compile('불법.{,20}(광고|현수막|간판)'),
-    '기타광고물': re.compile('(광고|현수막|간판)'),
+    '소방시설주정차': re.compile('(소화|소방).{,20}(주차|정차|주정)'),
+    '주정차단속': re.compile('(주차|정차|주정)|(차량.{,20}과태료)'),
+    '광고': re.compile('불법.{,20}(광고|현수막|간판)'),
     '불법건축물': re.compile('불법.{,20}건축물'),
-    '불법개조차량': re.compile('튜닝|(제동|점멸|미점|브레이크)등|불법.{,10}개조.{,10}차|번호판|반사판|리플렉터'),
+    '개조차량운전미숙': re.compile('튜닝|(제동|점멸|미점|브레이크)등|불법.{,10}개조.{,10}차|번호판|반사판|리플렉터'),  # 운전미숙도 포함인듯
     'CCTV설치요청': re.compile('(CCTV|시시티비|씨씨티비|감시.?카메라).{,20}(설치|요청)'),
-    '마스크미착용': re.compile('(마스크.{,20}(안|않|착용))|턱스크'),
-    '강남급행': re.compile('강남.?급행'),
+    '코로나_1': re.compile('(마스크.{,20}(안|않|착용))|턱스크'),
+    '광역급행': re.compile('강남.?급행|GTX'),
     '위험물관련': re.compile('위험물'),
-    '코로나': re.compile('코로나|자가.*격리'),
+    '코로나_2': re.compile('코로나|자가.*격리'),
 
     # 높은 가능성
     '쓰레기': re.compile('폐기물|쓰레기|투기'),
-    '도로보수_1': re.compile('노면|기울|싱크홀|씽크홀|포트홀'),
-    '도로보수_2': re.compile('도로.{,20}(시설|파손|수리|훼손|보수|정비|침하|파임|파인|메꾸|메꿔)'),
-    '파손수리': re.compile('파손|수리|훼손|보수|정비'),
+    '설치파손수리_1': re.compile('노면|기울|싱크홀|씽크홀|포트홀'),
+    '설치파손수리_2': re.compile('도로.{,20}(시설|파손|수리|훼손|보수|정비|침하|파임|파인|메꾸|메꿔)'),
+    '설치파손수리_3': re.compile('설치|파손|수리|훼손|보수|정비|보도 ?블럭'),
     '흡연': re.compile('흡연|금연|담배|꽁초'),
-    '가로등': re.compile('가로등|조명'),
+    '가로등': re.compile('가로등|조명|보안등'),
     '신호등': re.compile('신호등'),
-    '아파트': re.compile('아파트'),
+    '주택': re.compile('아파트|주택|주거|동 ?대표'),
+    '방역_1': re.compile('방역|벌레'),
     '가로수': re.compile('가로수|나무'),
     '자전거': re.compile('자전거'),
-    '방역': re.compile('방역'),
     '제설': re.compile('제설'),
     '오염': re.compile('대기.{,10}오염|황사|미세.?먼지|수질|소각'),
     '냄새': re.compile('냄새|악취'),
-    '불친절': re.compile('불친절|불쾌|감정|고압적|자존심'),
+    '불친절': re.compile('불친절|불쾌|감정|고압적|자존심|매크로|성실|열정'),
     # '아동급식카드': re.compile('아동.?급식'), # 2만 여건 중 1건
 
     # 얻어걸릴 가능성
@@ -51,14 +49,15 @@ patterns = OrderedDict({
     '불법영업노점': re.compile('인도'),
     '위생': re.compile('위생|부패|변질|상한|상했|상하|상함'),
     '도시가스': re.compile('가스'),
-    '수도': re.compile('수도|배수|맨홀'),
-    '동물': re.compile('벌레|개|강아지|고양이|사체|시체|로드킬'),
-    '사고': re.compile('사고')
+    '수도': re.compile('수도|배수|맨홀|하수'),
+    '방역_2': re.compile('뱀|쥐'),
+    '동물': re.compile('애완|반려견|반려묘|반려동물|개가|개를|강아지|고양이|로드킬|목줄|입마개'),
+    '사고': re.compile('사고')  # 의료 사고 등을 제외하면 사고보다는 설치파손수리가 대부분
 })
 
 
 def add_type(complaints: pd.DataFrame) -> pd.DataFrame:
-    print('민원유입경로 추측 중')
+    complaints['_민원경로'] = '-'
     index_length = len(complaints.index)
     for idx in range(index_length):
         text = complaints.loc[idx, '_민원제목']
@@ -81,26 +80,27 @@ def add_title(complaints: pd.DataFrame) -> pd.DataFrame:
     no_hit = 0
 
     index_length = len(complaints.index)
-    print('민원 요지 + 제목으로 1차 분류 중')
+    temp_pattern = re.compile('_.*')
     for idx in range(index_length):
         text = complaints.loc[idx, '_민원요지'] + '\n' + complaints.loc[idx, '_민원제목']
         text = text.replace('\n', ' ')
         # 지금은 대표적인거 하나로 제목을 지정했는데 여러 범주에 포함되는 것도 있을지도?
         for key, pattern in patterns.items():
             if re.search(pattern, text):
+                key = re.sub(temp_pattern, '', key)
                 complaints.loc[idx, '민원제목*'] = key
                 hit_dict[key] += 1
                 break
         else:
             complaints.loc[idx, '민원제목*'] = '_미분류'
 
-    print('민원 내용으로 2차 분류 중')
     for idx in range(index_length):
         text = complaints.loc[idx, '_민원요지']
         text = text.replace('\n', ' ')
         if complaints.loc[idx, '민원제목*'] == '_미분류':
             for key, pattern in patterns.items():
                 if re.search(pattern, text):
+                    key = re.sub(temp_pattern, '', key)
                     complaints.loc[idx, '민원제목*'] = key
                     hit_dict[key] += 1
                     break
@@ -165,49 +165,60 @@ def add_text(complaints: pd.DataFrame) -> pd.DataFrame:
             if not text:
                 text = complaints.loc[idx, '_민원제목']
             if not text:
-                text = '#NJ : ' + complaints.loc[idx, '_민원내용'][:100]
+                text = complaints.loc[idx, '_민원내용'][:100]
             complaints.loc[idx, '민원내용*'] = text
 
     print('민원 내용 생성 완료')
     return complaints
 
 
-def delete_temp_columns(complaints: pd.DataFrame) -> pd.DataFrame:
-    """
-    임시 컬럼 삭제
-    """
-    select = list()
-    for column in complaints.columns:
-        if not column.startswith('_'):
-            select.append(column)
-    select = ['민원접수번호*','민원내용*','_명사추출']
-    complaints = complaints.loc[:, select]
-
-    print('임시 컬럼 삭제 완료')
-    return complaints
-
-
 def add_nouns(complaints: pd.DataFrame) -> pd.DataFrame:
     kkma = Kkma()
+    one_char_words = [char for char in '돈봉차비글힘홈물']  # 한 글자로도 의미가 있는 단어들
+    # unused_words = ['해당', '대하', '번지', '아니', '요건', '충족']
+    # 안전신문고와 같이 기본 단어가 아닌 경우 konlpy dic에 추가하고 제외해야 됨
+    # 안그러면 ['안전', '신문고'] 이렇게 나와서 제외 안 됨
+    unused_words = ['해당','번지','요건','충족','안전신문고','기타생활불편']
+    complaints['_단어추출'] = '-'
     index_length = len(complaints['민원내용*'])
-    div = 1
     start_time = time.time()
     for idx in range(index_length):
         text = complaints.loc[idx, '민원내용*']
-        ex_pos = kkma.pos(text)
 
-        nouns = list()
-        for term, wclass in ex_pos:
-            if wclass == 'NNG' or wclass == 'NNP' or wclass == 'NP' or wclass == 'NNM':
-                nouns.append(term)
-        if idx % div == 0:
+        # NNG: 일반명사, NNP: 고유명사, VV: 동사, VA: 형용사
+        # 동사를 빼면 고임(고이) 파임(파이) 등에서는 불리
+        ex_pos = kkma.pos(text)
+        terms = [term for term, wclass in ex_pos if term == '어렵' or wclass in ('NNG', 'NNP') and (len(term) >= 2 and term not in unused_words or term in one_char_words)]
+        terms = ['어려움' if term == '어렵' else term for term in terms]
+        terms = ['주차' if term in ('주정차','주정','정차') else term for term in terms]
+
+        # 순서를 지키며 중복 제거
+        duplication_check_list = list()
+        for term in terms:
+            if term not in duplication_check_list:
+                duplication_check_list.append(term)
+        terms = duplication_check_list
+
+        complaints.loc[idx, '_단어추출'] = ','.join(terms)
+
+        if not idx % 100:
             print(f'{idx} / {index_length} : {round(time.time() - start_time, 2)}초')
-        if idx // div == 10:
-            div *= 10
-        complaints.loc[idx, '_명사추출'] = ' '.join(nouns)
 
     return complaints
 
 
+def delete_temp_columns(complaints: pd.DataFrame) -> pd.DataFrame:
+    select = list()
+    # complaints['민원내용*'] = complaints['_단어추출']
+    for column in complaints.columns:
+        if not column.startswith('_'):
+            select.append(column)
+    complaints = complaints.loc[:, select]
+    print('임시 컬럼 삭제 완료')
+
+    return complaints
+
+
+# 일단 보류
 def set_dept_for_na():
     pass

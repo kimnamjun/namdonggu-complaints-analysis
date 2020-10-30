@@ -1,3 +1,4 @@
+from time import time
 import numpy as np
 import pandas as pd
 from sklearn.feature_extraction.text import TfidfVectorizer
@@ -10,7 +11,8 @@ from sklearn.ensemble import RandomForestClassifier
 # from xgboost import
 
 
-def predict_naive_bayes(complaints: pd.DataFrame) -> pd.DataFrame:
+def predict_svm(complaints: pd.DataFrame) -> pd.DataFrame:
+    print('나이브 베이즈 실행 : 2만 2천여건 돌리는 데 10분 정도?')
     words = complaints['_명사추출']
     complaints['_명사추출'].fillna('치약', inplace=True)
     x = TfidfVectorizer().fit_transform(words).toarray()
@@ -34,27 +36,22 @@ def predict_naive_bayes(complaints: pd.DataFrame) -> pd.DataFrame:
     complaints.drop(['y'], axis='columns', inplace=True)
     print(y2)
 
-    result4 = list()
-    result5 = list()
+    x_train, x_test, y_train, y_test = train_test_split(x, y2)
 
-    max_acc = 0
+    svm = SVC(kernel='linear', gamma='auto')
+    start = time()
+    svm_model = svm.fit(X=x_train, y=y_train)
+    print('fit 시간 :', time() - start)
 
-    for i in range(10):
-        x_train, x_test, y_train, y_test = train_test_split(x, y2)
+    # y_pred = svm_model.predict(X=x_test)
+    # print('predict 시간1 :', time() - start)
 
-        svm = SVC(kernel='linear', gamma='auto')
-        svm_model = svm.fit(X=x_train, y=y_train)
-        y_pred = svm_model.predict(X=x_test)
-        acc = accuracy_score(y_test, y_pred)
-        result4.append(acc)
+    y_pred = svm_model.predict(X=x)
+    # acc = accuracy_score(y2, y_pred)
+    # print('svm acc', acc)
+    print('predict 시간2 :', time() - start)
 
-        if acc > max_acc:
-            max_acc = acc
-            print(i, 'svm', acc)
-            y_pred = svm_model.predict(X=x)
-            for idx, y_val in enumerate(y_pred):
-                complaints.loc[idx, '_예측'] = y_dic_inv[y_val]
+    for idx, y_val in enumerate(y_pred):
+        complaints.loc[idx, '_예측'] = y_dic_inv[y_val]
 
-    print(sum(result4))  # 얘 뺴고는 고만고만한데 얘도 다른 애들보다 조금 높은 수준
-    print(sum(result5))
-    return predict_naive_bayes(complaints)
+    return complaints

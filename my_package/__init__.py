@@ -1,7 +1,9 @@
 import pandas as pd
 from my_package import func_create_formatted_data
 from my_package import func_update_columns
-from my_package import func_predict
+from time import time
+# from my_package import func_predict
+# from my_package import func_predict_tensorflow
 
 def create_formatted_data(original_complaints: pd.DataFrame) -> pd.DataFrame:
     """
@@ -13,9 +15,7 @@ def create_formatted_data(original_complaints: pd.DataFrame) -> pd.DataFrame:
 
 
 def add_type(complaints: pd.DataFrame) -> pd.DataFrame:
-    """
-    안전신문고 및 생활불편신고 분리
-    """
+    """안전신문고 및 생활불편신고 분리"""
     return func_update_columns.add_type(complaints)
 
 
@@ -38,14 +38,41 @@ def add_text(complaints: pd.DataFrame) -> pd.DataFrame:
 
 
 def delete_temp_columns(complaints: pd.DataFrame) -> pd.DataFrame:
-    """
-    임시 컬럼 삭제
-    """
+    """임시 컬럼 삭제"""
     return func_update_columns.delete_temp_columns(complaints)
 
 
 def add_nouns(complaints: pd.DataFrame) -> pd.DataFrame:
+    """민원 내용을 바탕으로 명사 추출"""
     return func_update_columns.add_nouns(complaints)
 
-def predict_naive_bayes(complaints: pd.DataFrame) -> pd.DataFrame:
-    return func_predict.predict_naive_bayes(complaints)
+def wide_to_long(complaints):
+    start = time()
+    prev = time()
+    delay = list()
+
+    for idx, val in enumerate(complaints['민원내용*']):
+        if idx % 100 == 0:
+            new_complaints = pd.DataFrame(complaints).iloc[:0, :]
+            print('진행상황:', idx, round(time()-start), round(time()-prev))
+            prev = time()
+        try:
+            words = val.split(',')
+            for word in words:
+                complaints.loc[idx, '민원내용*'] = word
+                new_complaints = pd.concat([new_complaints, pd.DataFrame(complaints.loc[idx, :]).T])
+        except:
+            pass
+        if idx % 100 == 99 or idx == len(complaints['민원내용*']) - 1:
+            delay.append(new_complaints)
+    new2_com = pd.concat(delay)
+    return new2_com
+
+def predict_svm(complaints: pd.DataFrame) -> pd.DataFrame:
+    """
+    navie_bayes
+    """
+    return func_predict.predict_svm(complaints)
+
+def word2vec(complaints: pd.DataFrame) -> pd.DataFrame:
+    return func_predict_tensorflow.word2vec(complaints)
