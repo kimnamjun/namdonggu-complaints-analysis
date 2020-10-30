@@ -1,9 +1,11 @@
+import numpy as np
 import pandas as pd
 from my_package import func_create_formatted_data
 from my_package import func_update_columns
 from time import time
 # from my_package import func_predict
 # from my_package import func_predict_tensorflow
+from my_package import func_visualize
 
 def create_formatted_data(original_complaints: pd.DataFrame) -> pd.DataFrame:
     """
@@ -76,3 +78,6 @@ def predict_svm(complaints: pd.DataFrame) -> pd.DataFrame:
 
 def word2vec(complaints: pd.DataFrame) -> pd.DataFrame:
     return func_predict_tensorflow.word2vec(complaints)
+
+def show_wordcloud(complaints: pd.DataFrame, mask: np.array):
+    return func_visualize.show_wordcloud(complaints, mask)

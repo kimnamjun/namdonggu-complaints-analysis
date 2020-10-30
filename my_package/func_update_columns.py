@@ -178,7 +178,7 @@ def add_nouns(complaints: pd.DataFrame) -> pd.DataFrame:
     # unused_words = ['해당', '대하', '번지', '아니', '요건', '충족']
     # 안전신문고와 같이 기본 단어가 아닌 경우 konlpy dic에 추가하고 제외해야 됨
     # 안그러면 ['안전', '신문고'] 이렇게 나와서 제외 안 됨
-    unused_words = ['해당','번지','요건','충족','안전신문고','기타생활불편']
+    unused_words = ['해당','번지','요건','충족','안전신문고','기타생활불편','부과','어려움','과태료']
     complaints['_단어추출'] = '-'
     index_length = len(complaints['민원내용*'])
     start_time = time.time()
@@ -209,7 +209,7 @@ def add_nouns(complaints: pd.DataFrame) -> pd.DataFrame:
 
 def delete_temp_columns(complaints: pd.DataFrame) -> pd.DataFrame:
     select = list()
-    # complaints['민원내용*'] = complaints['_단어추출']
+    complaints['민원내용*'] = complaints['_단어추출']
     for column in complaints.columns:
         if not column.startswith('_'):
             select.append(column)
