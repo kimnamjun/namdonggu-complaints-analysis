@@ -7,13 +7,15 @@ from time import time
 # from my_package import func_predict_tensorflow
 from my_package import func_visualize
 
-def create_formatted_data(original_complaints: pd.DataFrame) -> pd.DataFrame:
+
+def create_formatted_data(original_complaints: pd.DataFrame, quarter=3) -> pd.DataFrame:
     """
     양식에 맞는 DataFrame 생성
     :param original_complaints: 민원 원본 데이터
+    :param quarter: 분기 변경
     :return: 양식에 맞는 데이터
     """
-    return func_create_formatted_data.create_formatted_data(original_complaints)
+    return func_create_formatted_data.create_formatted_data(original_complaints, quarter)
 
 
 def add_type(complaints: pd.DataFrame) -> pd.DataFrame:
@@ -44,9 +46,9 @@ def delete_temp_columns(complaints: pd.DataFrame) -> pd.DataFrame:
     return func_update_columns.delete_temp_columns(complaints)
 
 
-def add_nouns(complaints: pd.DataFrame) -> pd.DataFrame:
+def add_nouns(complaints: pd.DataFrame, deduplication=True) -> pd.DataFrame:
     """민원 내용을 바탕으로 명사 추출"""
-    return func_update_columns.add_nouns(complaints)
+    return func_update_columns.add_nouns(complaints, deduplication=deduplication)
 
 def wide_to_long(complaints):
     start = time()

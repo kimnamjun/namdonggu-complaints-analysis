@@ -15,9 +15,10 @@ patterns = OrderedDict({
     '장애인주차구역': re.compile('장애인.{,20}차'),  # 장애인 스티커 미부착 차량...
     '소방시설주정차': re.compile('(소화|소방).{,20}(주차|정차|주정)'),
     '주정차단속': re.compile('(주차|정차|주정)|(차량.{,20}과태료)'),
+    '현수막': re.compile('현수막'),
     '광고': re.compile('불법.{,20}(광고|현수막|간판)'),
     '불법건축물': re.compile('불법.{,20}건축물'),
-    '개조차량운전미숙': re.compile('튜닝|(제동|점멸|미점|브레이크)등|불법.{,10}개조.{,10}차|번호판|반사판|리플렉터'),  # 운전미숙도 포함인듯
+    '불법차량': re.compile('튜닝|(제동|점멸|미점|브레이크)등|불법.{,10}개조.{,10}차|번호판|반사판|리플렉터'),  # 운전미숙도 포함인듯
     'CCTV설치요청': re.compile('(CCTV|시시티비|씨씨티비|감시.?카메라).{,20}(설치|요청)'),
     '코로나_1': re.compile('(마스크.{,20}(안|않|착용))|턱스크'),
     '광역급행': re.compile('강남.?급행|GTX'),
@@ -80,14 +81,14 @@ def add_title(complaints: pd.DataFrame) -> pd.DataFrame:
     no_hit = 0
 
     index_length = len(complaints.index)
-    temp_pattern = re.compile('_.*')
+    underbar_pattern = re.compile('_.*')
     for idx in range(index_length):
         text = complaints.loc[idx, '_민원요지'] + '\n' + complaints.loc[idx, '_민원제목']
         text = text.replace('\n', ' ')
         # 지금은 대표적인거 하나로 제목을 지정했는데 여러 범주에 포함되는 것도 있을지도?
         for key, pattern in patterns.items():
             if re.search(pattern, text):
-                key = re.sub(temp_pattern, '', key)
+                key = re.sub(underbar_pattern, '', key)
                 complaints.loc[idx, '민원제목*'] = key
                 hit_dict[key] += 1
                 break
@@ -165,6 +166,7 @@ def add_text(complaints: pd.DataFrame) -> pd.DataFrame:
             if not text:
                 text = complaints.loc[idx, '_민원제목']
             if not text:
+                # 요지나 제목으로 안될 경우 내용의 100글자만 추출하여 저장
                 text = complaints.loc[idx, '_민원내용'][:100]
             complaints.loc[idx, '민원내용*'] = text
 
@@ -172,16 +174,19 @@ def add_text(complaints: pd.DataFrame) -> pd.DataFrame:
     return complaints
 
 
-def add_nouns(complaints: pd.DataFrame) -> pd.DataFrame:
+def add_nouns(complaints: pd.DataFrame, deduplication=True) -> pd.DataFrame:
+    """:param deduplication: True일 경우 단어 중복 제거"""
     kkma = Kkma()
     one_char_words = [char for char in '돈봉차비글힘홈물']  # 한 글자로도 의미가 있는 단어들
-    # unused_words = ['해당', '대하', '번지', '아니', '요건', '충족']
     # 안전신문고와 같이 기본 단어가 아닌 경우 konlpy dic에 추가하고 제외해야 됨
     # 안그러면 ['안전', '신문고'] 이렇게 나와서 제외 안 됨
-    unused_words = ['해당','번지','요건','충족','안전신문고','기타생활불편','부과','어려움','과태료']
+    # unused_words = ['해당', '대하', '번지', '아니', '요건', '충족']
+    unused_words = ['해당','번지','요건','충족','안전신문고','기타생활불편',  # '부과','어려움','과태료',
+                    '생활불편신고', '생활', '불편', '신고']
     complaints['_단어추출'] = '-'
     index_length = len(complaints['민원내용*'])
     start_time = time.time()
+    temp_comma = 0
     for idx in range(index_length):
         text = complaints.loc[idx, '민원내용*']
 
@@ -193,28 +198,34 @@ def add_nouns(complaints: pd.DataFrame) -> pd.DataFrame:
         terms = ['주차' if term in ('주정차','주정','정차') else term for term in terms]
 
         # 순서를 지키며 중복 제거
-        duplication_check_list = list()
-        for term in terms:
-            if term not in duplication_check_list:
-                duplication_check_list.append(term)
-        terms = duplication_check_list
+        if deduplication:
+            duplication_check_list = list()
+            for term in terms:
+                if term not in duplication_check_list:
+                    duplication_check_list.append(term)
+            terms = duplication_check_list
 
         complaints.loc[idx, '_단어추출'] = ','.join(terms)
+        temp_comma = max(temp_comma, len(complaints.loc[idx, '_단어추출']))
 
         if not idx % 100:
             print(f'{idx} / {index_length} : {round(time.time() - start_time, 2)}초')
+    print('max length =', temp_comma)
 
     return complaints
 
 
 def delete_temp_columns(complaints: pd.DataFrame) -> pd.DataFrame:
     select = list()
-    complaints['민원내용*'] = complaints['_단어추출']
-    for column in complaints.columns:
-        if not column.startswith('_'):
-            select.append(column)
+    # complaints['민원내용*'] = complaints['_단어추출']
+    # for column in complaints.columns:
+    #     if not column.startswith('_'):
+    #         select.append(column)
+    select = '민원접수번호*', '_민원인', '민원인주소*', '민원제목*', '_민원요지', '_민원제목', '_민원내용'
     complaints = complaints.loc[:, select]
+    complaints = complaints[complaints['_민원인'] == '한형석']
     print('임시 컬럼 삭제 완료')
+    print('rows', len(complaints.index))
 
     return complaints
 
