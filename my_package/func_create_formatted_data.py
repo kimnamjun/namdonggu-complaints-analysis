@@ -113,6 +113,7 @@ def create_formatted_data(original_complaints: pd.DataFrame, quarter=3) -> pd.Da
     complaints['_민원내용'] = original_complaints['민원내용'].fillna('')
     complaints['_민원요지'] = original_complaints['민원요지'].fillna('')
     complaints['_민원인'] = original_complaints['민원인'].fillna('')
+    complaints['_민원내용*'] = str()
 
     # 민원접수번호 순 정렬
     complaints.sort_values(by=['민원접수번호*'], inplace=True)

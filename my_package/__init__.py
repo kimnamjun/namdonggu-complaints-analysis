@@ -41,6 +41,11 @@ def add_text(complaints: pd.DataFrame) -> pd.DataFrame:
     return func_update_columns.add_text(complaints)
 
 
+def set_dept_for_na(complaints: pd.DataFrame) -> pd.DataFrame:
+    """빈칸으로 남겨진 부서 채우기"""
+    return func_update_columns.set_dept_for_na(complaints)
+
+
 def delete_temp_columns(complaints: pd.DataFrame) -> pd.DataFrame:
     """임시 컬럼 삭제"""
     return func_update_columns.delete_temp_columns(complaints)
@@ -49,6 +54,10 @@ def delete_temp_columns(complaints: pd.DataFrame) -> pd.DataFrame:
 def add_nouns(complaints: pd.DataFrame, deduplication=True) -> pd.DataFrame:
     """민원 내용을 바탕으로 명사 추출"""
     return func_update_columns.add_nouns(complaints, deduplication=deduplication)
+
+def load_nouns(complaints: pd.DataFrame, ref_complaints: pd.DataFrame) -> pd.DataFrame:
+    """다른 파일에서 불러오기"""
+    return func_update_columns.load_nouns(complaints, ref_complaints)
 
 def wide_to_long(complaints):
     start = time()

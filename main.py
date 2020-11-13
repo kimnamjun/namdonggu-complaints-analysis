@@ -22,7 +22,13 @@ complaints = my.add_title(complaints)
 complaints = my.add_text(complaints)
 
 # 명사 추출 (민원내용에 종속)
-complaints = my.add_nouns(complaints, deduplication=False)
+# complaints = my.add_nouns(complaints, deduplication=False)
+
+# ref_complaints = pd.read_csv(f'D:/온라인민원상담/outputs/{quarter}/민원_1103_1655_full.csv', encoding='cp949')
+complaints = my.load_nouns(complaints, ref_complaints)
+
+# 부서없음 (민원내용에 종속)
+complaints = my.set_dept_for_na(complaints)
 
 # 엑셀로 열면 '='로 시작하는 필드값이 '#NAME?'이 되는 경우가 있음
 now = datetime.strftime(datetime.now(), '%m%d_%H%M')

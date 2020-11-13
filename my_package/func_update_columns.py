@@ -101,7 +101,7 @@ def add_title(complaints: pd.DataFrame) -> pd.DataFrame:
         if complaints.loc[idx, '민원제목*'] == '_미분류':
             for key, pattern in patterns.items():
                 if re.search(pattern, text):
-                    key = re.sub(temp_pattern, '', key)
+                    key = re.sub(underbar_pattern, '', key)
                     complaints.loc[idx, '민원제목*'] = key
                     hit_dict[key] += 1
                     break
@@ -149,7 +149,7 @@ def add_text(complaints: pd.DataFrame) -> pd.DataFrame:
                 text = re.sub(prefix, ' ', text)
             text = re.sub(pattern_space, ' ', text)
             text = text.strip()
-            complaints.loc[idx, '민원내용*'] = text
+            complaints.loc[idx, '_민원내용*'] = text
 
         elif complaints.loc[idx, '_민원경로'] == '스마트':
             text = ''
@@ -157,7 +157,7 @@ def add_text(complaints: pd.DataFrame) -> pd.DataFrame:
                 search = re.search(prefix, complaints.loc[idx, '_민원내용'])
                 if search:
                     text += search.group(1) + ' '
-            complaints.loc[idx, '민원내용*'] = text
+            complaints.loc[idx, '_민원내용*'] = text
 
         else:
             text = complaints.loc[idx, '_민원요지']
@@ -168,7 +168,7 @@ def add_text(complaints: pd.DataFrame) -> pd.DataFrame:
             if not text:
                 # 요지나 제목으로 안될 경우 내용의 100글자만 추출하여 저장
                 text = complaints.loc[idx, '_민원내용'][:100]
-            complaints.loc[idx, '민원내용*'] = text
+            complaints.loc[idx, '_민원내용*'] = text
 
     print('민원 내용 생성 완료')
     return complaints
@@ -184,11 +184,11 @@ def add_nouns(complaints: pd.DataFrame, deduplication=True) -> pd.DataFrame:
     unused_words = ['해당','번지','요건','충족','안전신문고','기타생활불편',  # '부과','어려움','과태료',
                     '생활불편신고', '생활', '불편', '신고']
     complaints['_단어추출'] = '-'
-    index_length = len(complaints['민원내용*'])
+    index_length = len(complaints['_민원내용*'])
     start_time = time.time()
     temp_comma = 0
     for idx in range(index_length):
-        text = complaints.loc[idx, '민원내용*']
+        text = complaints.loc[idx, '_민원내용*']
 
         # NNG: 일반명사, NNP: 고유명사, VV: 동사, VA: 형용사
         # 동사를 빼면 고임(고이) 파임(파이) 등에서는 불리
@@ -215,21 +215,66 @@ def add_nouns(complaints: pd.DataFrame, deduplication=True) -> pd.DataFrame:
     return complaints
 
 
+def load_nouns(complaints: pd.DataFrame, ref_complaints: pd.DataFrame) -> pd.DataFrame:
+    if len(complaints.index) != len(ref_complaints.index):
+        print('참조할 개수가 다릅니다.')
+        raise Exception('인덱스 개수가 다름')
+    for idx in range(len(complaints.index)):
+        complaints.loc[idx, '_단어추출'] = ref_complaints.loc[idx, '_단어추출']
+    return complaints
+
+
+def set_dept_for_na(complaints: pd.DataFrame) -> pd.DataFrame:
+    dept_patterns = {
+        '건설과': re.compile('포트홀'),
+        '공원녹지과': re.compile('병해충|방제|방역|가로수|나무'),
+        '도시경관과': re.compile('광고|적치'),
+        '자동차관리과': re.compile('전기차'),
+        '청소행정과': re.compile('소각|사체|시체|쓰레기|폐기물|투기|청소')  # 폐기물은 다른 부서도 많음
+    }
+    # 2020년 1분기 기준 부서별 부서코드
+    dept = {'간석1동': 3530024, '간석2동': 3530025, '간석3동': 3530026, '간석4동': 3530027, '감사실': 3530090, '건강증진과': 3530082,
+            '건설과': 3530224, '건축과': 3530226, '공동주택과': 3530227, '공영개발과': 3530223, '공원녹지과': 3530219,
+            '교통행정과': 3530220, '구월1동': 3530020, '구월2동': 3530021, '구월3동': 3530022, '구월4동': 3530023,
+            '기업지원과': 3530178, '기획예산과': 3530197, '남동산단지원사업소': 3530209, '남촌도림동': 3530035,
+            '노인장애인과': 3530212, '논현1동': 3530096, '논현2동': 3530097, '논현고잔동': 3530119, '농축수산과': 3530180,
+            '대변인': 3530195, '도시경관과': 3530218, '도시재생과': 3530222, '만수1동': 3530028, '만수2동': 3530029,
+            '만수3동': 3530030, '만수4동': 3530031, '만수5동': 3530032, '만수6동': 3530033, '문화관광과': 3530202,
+            '민원봉사과': 3530162, '방재하수과': 3530225, '보건행정과': 3530062, '보육정책과': 3530215, '복지정책과': 3530210,
+            '사회보장과': 3530211, '생활경제과': 3530179, '서창2동': 3530194, '세무과': 3530186, '세입징수과': 3530187,
+            '소통협력담당관': 3530188, '식품위생과': 3530128, '아동복지과': 3530214, '안전총괄과': 3530199, '여성가족과': 3530213,
+            '의회사무국': 3530018, '일자리정책과': 3530198, '자동차관리과': 3530221, '장수서창동': 3530034, '재무과': 3530174,
+            '청소행정과': 3530216, '체육진흥과': 3530203, '총무과': 3530157, '치매정신건강과': 3530207, '토지정보과': 3530191,
+            '평생교육과': 3530201, '환경보전과': 3530217}
+    cnt = 0
+    for idx in range(len(complaints.index)):
+        text = complaints.loc[idx, '_민원내용*']
+        if complaints.loc[idx, '처리부서*'] == '부서없음':
+            for key, pattern in dept_patterns.items():
+                if re.search(pattern, text):
+                    complaints.loc[idx, '처리부서*'] = key
+                    try:
+                        complaints.loc[idx, '부서코드*'] = dept[complaints.loc[idx, '처리부서*']]
+                    except:
+                        print(idx, '부서코드 없음')
+                    break
+            else:
+                cnt += 1
+    # 직접 설정된 부서와 생성된 부서와 구분을 위해 부서 번호는 생략
+    print('아직도 미분류', cnt)
+    return complaints
+
+
 def delete_temp_columns(complaints: pd.DataFrame) -> pd.DataFrame:
     select = list()
-    # complaints['민원내용*'] = complaints['_단어추출']
-    # for column in complaints.columns:
-    #     if not column.startswith('_'):
-    #         select.append(column)
-    select = '민원접수번호*', '_민원인', '민원인주소*', '민원제목*', '_민원요지', '_민원제목', '_민원내용'
+    complaints['민원내용*'] = complaints['_단어추출']
+    for column in complaints.columns:
+        if not column.startswith('_'):
+            select.append(column)
     complaints = complaints.loc[:, select]
-    complaints = complaints[complaints['_민원인'] == '한형석']
     print('임시 컬럼 삭제 완료')
     print('rows', len(complaints.index))
 
     return complaints
 
 
-# 일단 보류
-def set_dept_for_na():
-    pass
