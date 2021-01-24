@@ -12,9 +12,9 @@ from sklearn.ensemble import RandomForestClassifier
 
 
 def predict_svm(complaints: pd.DataFrame) -> pd.DataFrame:
-    print('나이브 베이즈 실행 : 2만 2천여건 돌리는 데 10분 정도?')
+    print('2만 2천여건 돌리는 데 10분 정도?')
     words = complaints['_명사추출']
-    complaints['_명사추출'].fillna('치약', inplace=True)
+    complaints['_명사추출'].fillna('x', inplace=True)
     x = TfidfVectorizer().fit_transform(words).toarray()
     print(x)
 
